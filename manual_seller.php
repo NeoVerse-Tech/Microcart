@@ -1,61 +1,50 @@
-
 <?php
-require_once "db.php";   // connects to $pdo
+require 'db.php'; // your working PDO connection
 
-header("Content-Type: application/json");
+// ======= SELLER DATA =======
+$brandname       = 'Neo';
+$email           = 'Neo@example.com'; // use this to log in
+$call_number     = '07043682582';
+$whatsapp_number = '08026450331';
+$address         = 'Lagos';
+$profile_image   = '/20250731_141550.png';
+$location        = 'Lagos';
 
-// Read raw POST body
-$input = json_decode(file_get_contents("php://input"), true);
-
-// Required fields
-if (!isset($input["brandname"]) || !isset($input["email"])) {
-    echo json_encode([
-        "success" => false,
-        "message" => "Missing required fields: brandname or email"
-    ]);
-    exit;
-}
-
-// Sanitize
-$brandname = trim($input["brandname"]);
-$email     = trim($input["email"]);
-$call      = $input["call_number"] ?? null;
-$whatsapp  = $input["whatsapp_number"] ?? null;
-$address   = $input["address"] ?? null;
-$profile   = $input["profile_image"] ?? "/default-avatar.png";
-
-// Generate token
+// ======= CREATE API TOKEN =======
 $api_token = bin2hex(random_bytes(16)); // 32-char token
 
 try {
+    // --- Check if email already exists ---
+    $check = $pdo->prepare("SELECT id FROM sellers WHERE email = ?");
+    $check->execute([$email]);
+    if ($check->fetch()) {
+        echo "Seller already exists with email: $email";
+        exit;
+    }
+
+    // --- Insert seller (no password needed for Phase 1) ---
     $stmt = $pdo->prepare("
         INSERT INTO sellers 
-        (brandname, email, call_number, whatsapp_number, address, profile_image, verified, api_token, created_at)
-        VALUES 
-        (:brandname, :email, :call, :whatsapp, :address, :profile, 1, :token, NOW())
+        (brandname, email, call_number, whatsapp_number, address, api_token, verified, profile_image)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
     ");
+    $stmt->execute([$brandname, $email, $call_number, $whatsapp_number, $address, $api_token, $profile_image]);
+    $seller_id = $pdo->lastInsertId();
 
-    $stmt->execute([
-        ":brandname" => $brandname,
-        ":email"     => $email,
-        ":call"      => $call,
-        ":whatsapp"  => $whatsapp,
-        ":address"   => $address,
-        ":profile"   => $profile,
-        ":token"     => $api_token
-    ]);
+    // --- Insert storefront ---
+    $slug = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $brandname));
+    $stmt = $pdo->prepare("
+        INSERT INTO storefronts (name, logo, slug, location, user_id)
+        VALUES (?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([$brandname, '/default-logo.png', $slug, $location, $seller_id]);
 
-    echo json_encode([
-        "success" => true,
-        "message" => "Seller created successfully",
-        "sellerId" => $pdo->lastInsertId(),
-        "api_token" => $api_token
-    ]);
+    echo "✅ Seller and storefront created successfully!\n";
+    echo "Seller ID: $seller_id\n";
+    echo "Login email: $email\n";
+    echo "You can log in using email only (no password required for now).";
 
 } catch (Exception $e) {
-    echo json_encode([
-        "success" => false,
-        "message" => "Database error: " . $e->getMessage()
-    ]);
+    echo "❌ Error: " . $e->getMessage();
 }
 ?>
