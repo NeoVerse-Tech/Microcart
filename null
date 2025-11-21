@@ -1,0 +1,127 @@
+# ===========================
+# DATABASE CONFIGURATION
+# ===========================
+DB_HOST=db.pxxl.pro
+DB_PORT=56224
+DB_NAME=db_695c9cfd
+DB_USER=user_71553f4a
+DB_PASS=789304d582936cd894ab650416050655
+
+# ===========================
+# APP CONFIGURATION
+# ===========================
+BASE_URL=https://microcart.pxxl.click
+UPLOADS_DIR=uploads
+
+
+this is .env
+
+
+this is config.php
+<?php
+// config.php
+// Central configuration file for Microcart API
+
+// --- Load environment variables if available ---
+$env = [];
+if (file_exists(__DIR__ . '/.env')) {
+    $env = parse_ini_file(__DIR__ . '/.env', false, INI_SCANNER_TYPED);
+}
+
+// --- Base URL of the application ---
+define('BASE_URL', rtrim($env['BASE_URL'] ?? 'https://microcart.pxxl.click', '/'));
+
+// --- Default directories (no local uploads needed) ---
+define('UPLOADS_DIR', null); // no local uploads folder
+define('PROFILE_IMAGES_URL', BASE_URL . '/profile_images/');
+define('PRODUCT_IMAGES_URL', BASE_URL . '/product_images/');
+
+// --- Default placeholder images ---
+define('DEFAULT_PROFILE_IMAGE', PROFILE_IMAGES_URL . 'default-avatar.png');
+define('DEFAULT_PRODUCT_IMAGE', PRODUCT_IMAGES_URL . 'default-product.png');
+
+// --- Application limits ---
+define('MAX_UPLOAD_SIZE', 5 * 1024 * 1024);  // 5MB, kept for reference if using cloud storage
+define('MAX_PRODUCT_IMAGES', 2);              // maximum images per product
+define('FREEMIUM_POST_LIMIT', 25);            // max products for free users
+
+// --- Optional: other global settings ---
+// define('API_KEY', $env['API_KEY'] ?? null); // example for future use
+?>
+
+
+
+this is .htaccess
+# ===================================================
+# MicrocartX .htaccess (Optimized for Live)
+# ===================================================
+
+# 1. Protect sensitive files
+<FilesMatch "^(db\.php|config\.php|\.env)$">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
+
+# 2. Disable directory listing
+Options -Indexes
+
+# 3. Optional: prevent direct access to uploads (stronger security)
+<FilesMatch "^(uploads/.*)$">
+  Order Allow,Deny
+  Deny from all
+</FilesMatch>
+
+# 4. Allow Cross-Origin for API folder
+<IfModule mod_headers.c>
+  <FilesMatch "\.php$">
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+  </FilesMatch>
+</IfModule>
+
+# 5. Optional: Pretty URLs for API or frontend routing
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+
+ i want you to diagnose something suspicious with this stuffs 
+ 
+ i think it has to do with the credentials of the DB 
+ 
+ 
+ this is db.php
+<?php
+// db.php
+
+$env = parse_ini_file(__DIR__ . '/.env');
+
+$host = $env['DB_HOST'];
+$port = $env['DB_PORT'];
+$db   = $env['DB_NAME'];
+$user = $env['DB_USER'];
+$pass = $env['DB_PASS'];
+
+$charset = 'utf8mb4';
+
+$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
+
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES   => false,
+];
+
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+} catch (PDOException $e) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Database connection failed: ' . $e->getMessage()
+    ]);
+    exit;
+}
+
+i will get all the database credentials from pxxl so you can rescan their configuration 
