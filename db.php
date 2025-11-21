@@ -3,12 +3,12 @@
 // DATABASE CONNECTION (PDO)
 // ===========================================
 
-// Replace these manually
-$host = "YOUR_DB_HOST";
-$port = "YOUR_DB_PORT"; 
-$dbname = "YOUR_DB_NAME";
-$user = "YOUR_DB_USER";
-$pass = "YOUR_DB_PASSWORD";
+// Your actual database credentials:
+$host = "db.pxxl.pro";
+$port = "20424";
+$dbname = "db_abadad14";
+$user = "user_74fb784b";
+$pass = "9c5c428a9495a5ece0ae75f6b748b2f9";
 
 try {
     $pdo = new PDO(
