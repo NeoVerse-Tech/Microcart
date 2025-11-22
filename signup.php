@@ -48,43 +48,15 @@ function slugify($text) {
 }
 $slug = slugify($brandname);
 
-// --- HANDLE LOGO UPLOAD (optional) ---
-$logoPath = null;
-if (!empty($_FILES['logo']['name'])) {
+// --- USE DEFAULT LOGO ---
+$logoPath = "https://microcart.pxxl.click/1000329330.png"; // your placeholder logo
 
-    if ($_FILES['logo']['size'] > 2 * 1024 * 1024) {
-        echo json_encode(['success' => false, 'message' => 'Logo file too large (max 2MB)']);
-        exit;
-    }
-
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mimeType = finfo_file($finfo, $_FILES['logo']['tmp_name']);
-    finfo_close($finfo);
-
-    $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!in_array($mimeType, $allowed)) {
-        echo json_encode(['success' => false, 'message' => 'Unsupported logo format']);
-        exit;
-    }
-
-    $extension = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
-    $filename  = uniqid('logo_', true) . '.' . $extension;
-    $target    = __DIR__ . '/' . $filename;
-
-    if (!move_uploaded_file($_FILES['logo']['tmp_name'], $target)) {
-        echo json_encode(['success' => false, 'message' => 'Failed to upload logo']);
-        exit;
-    }
-
-    $logoPath = "https://microcart.pxxl.click/" . $filename;
-}
-
-// --- INSERT SELLER (NO PASSWORD) ---
+// --- INSERT SELLER (AUTO-VERIFIED) ---
 $stmt = $db->prepare("
-    INSERT INTO sellers (brandname, email, call_number, whatsapp_number, address, verified)
-    VALUES (?, ?, ?, ?, ?, 0)
+    INSERT INTO sellers (brandname, email, call_number, whatsapp_number, address, verified, profile_image)
+    VALUES (?, ?, ?, ?, ?, 1, ?)
 ");
-$stmt->execute([$brandname, $email, $call_number, $whatsapp_number, $address]);
+$stmt->execute([$brandname, $email, $call_number, $whatsapp_number, $address, $logoPath]);
 $userId = $db->lastInsertId();
 
 // --- INSERT STOREFRONT ---
@@ -95,7 +67,8 @@ $stmt = $db->prepare("
 $stmt->execute([$brandname, $logoPath, $slug, $location, $userId]);
 $storeId = $db->lastInsertId();
 
-// --- EMAIL VERIFY TOKEN ---
+// --- OPTIONAL EMAIL VERIFICATION (comment if not needed) ---
+/*
 $verifyToken = bin2hex(random_bytes(32));
 $expiresAt = date('Y-m-d H:i:s', strtotime('+1 day'));
 
@@ -109,8 +82,8 @@ $verifyLink = "https://microcart.pxxl.click/verify.php?token=$verifyToken";
 $subject = "Verify your Microcart account";
 $message = "Hi $brandname,\n\nPlease verify your account:\n$verifyLink\n\nExpires in 24 hours.";
 $headers = "From: no-reply@microcart.com\r\n";
-
 @mail($email, $subject, $message, $headers);
+*/
 
 // --- API TOKEN ---
 $apiToken = bin2hex(random_bytes(32));
@@ -120,9 +93,10 @@ $stmt->execute([$apiToken, $userId]);
 // --- RESPONSE ---
 echo json_encode([
     'success' => true,
-    'message' => 'Signup successful! Verification email sent.',
+    'message' => 'Signup successful! Account is verified.',
     'userId'  => $userId,
     'storeId' => $storeId,
-    'token'   => $apiToken
+    'token'   => $apiToken,
+    'logo'    => $logoPath
 ]);
 ?>
