@@ -2934,11 +2934,10 @@ this.showToast(`Login failed: ${result.message}`, 'error');
 
 
 
-      
 const SignupPage = {
-  template: `
+template: `
   <div class="signup-page">
-
+    
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <div class="spinner"></div>
@@ -2952,16 +2951,24 @@ const SignupPage = {
     <h2 class="signup-title">Create Seller Account</h2>
 
     <form @submit.prevent="submitSignup">
-
-      <!-- Logo Preview -->
-      <div class="logo-preview-wrapper">
-        <img :src="defaultLogo" alt="Logo" class="logo-preview" />
+      
+      <!-- Logo Upload -->
+      <div class="logo-upload">
+        <div class="logo-preview-wrapper">
+          <img :src="logoPreview || defaultLogo" alt="Logo Preview" class="logo-preview" />
+        </div>
+        <input ref="logoInput" type="file" accept="image/*" hidden @change="handleLogoUpload" />
+        <button type="button" class="upload-btn" @click="triggerLogoUpload" :disabled="isUploading">
+          {{ isUploading ? "Uploading..." : "Upload Logo" }}
+        </button>
       </div>
 
       <!-- Brand Info -->
       <input type="text" v-model.trim="sellerBrandname" placeholder="Brand Name" required />
       <input type="email" v-model.trim="sellerEmail" placeholder="Email Address" required />
-      <input type="text" v-model.trim="sellerLocation" placeholder="Location (e.g. Port Harcourt, Nigeria)" required />
+      
+
+      <input type="text" v-model.trim="sellerLocation" placeholder="Location (e.g. Lagos, Nigeria)" required />
       <input type="tel" v-model.trim="sellerCallNumber" placeholder="Call Number" required />
       <input type="tel" v-model.trim="sellerWhatsapp" placeholder="WhatsApp Number" required />
 
@@ -2974,32 +2981,54 @@ const SignupPage = {
     </p>
   </div>
   `,
-
+  
   data() {
     return {
-      defaultLogo: "https://microcart.pxxl.click/1000329330.png",
+      sellerLogo: null,
+      logoPreview: '',
+      defaultLogo: "https://cdn-icons-png.flaticon.com/512/847/847969.png",
       sellerBrandname: '',
-      sellerEmail: '',
-      sellerLocation: '',
+      sellerEmail: '',      sellerLocation: '',
       sellerCallNumber: '',
       sellerWhatsapp: '',
       loading: false,
-      toast: { visible: false, message: '', type: 'success' },
+      isUploading: false,
+      toast: {
+        visible: false,
+        message: '',
+        type: 'success'
+      },
       toastTimeout: null
     };
   },
-
-  mounted() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const verified = urlParams.get("verified");
-    if (verified === "success") {
-      this.showToast("Email verified successfully!", "success");
-    } else if (verified === "already") {
-      this.showToast("Your account is already verified.", "info");
-    }
-  },
+mounted() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const verified = urlParams.get("verified");
+  if (verified === "success") {
+    this.showToast("Email verified successfully!", "success");
+  } else if (verified === "already") {
+    this.showToast("Your account is already verified.", "info");
+  }
+},
 
   methods: {
+    triggerLogoUpload() {
+      this.$refs.logoInput.click();
+    },
+    
+    handleLogoUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        this.showToast("Please select a valid image file.", "error");
+        return;
+      }
+      this.sellerLogo = file;
+      const reader = new FileReader();
+      reader.onload = (e) => (this.logoPreview = e.target.result);
+      reader.readAsDataURL(file);
+    },
+    
     showToast(message, type = "success", duration = 3000) {
       this.toast.message = message;
       this.toast.type = type;
@@ -3007,17 +3036,17 @@ const SignupPage = {
       clearTimeout(this.toastTimeout);
       this.toastTimeout = setTimeout(() => (this.toast.visible = false), duration);
     },
-
+    
     normalizeNumber(number) {
       number = number.trim();
       if (/^0\d{10}$/.test(number)) return "+234" + number.slice(1);
       if (/^234\d{10}$/.test(number)) return "+" + number;
       return number;
     },
-
-    async submitSignup() {
-      if (!this.sellerBrandname || !this.sellerEmail) {
-        this.showToast("Brand name and email are required.", "error");
+    
+  async submitSignup() {
+      if (!this.sellerBrandname || !this.sellerEmail ) {
+        this.showToast("All fields are required.", "error");
         return;
       }
       if (!/\S+@\S+\.\S+/.test(this.sellerEmail)) {
@@ -3025,37 +3054,61 @@ const SignupPage = {
         return;
       }
 
-      this.loading = true;
+// Logo is optional — no validation required
 
+      this.loading = true;
+      
       const call = this.normalizeNumber(this.sellerCallNumber);
       const wa = this.normalizeNumber(this.sellerWhatsapp);
-
+      
       const formData = new FormData();
-      formData.append("brandname", this.sellerBrandname);
-      formData.append("email", this.sellerEmail);
-      formData.append("location", this.sellerLocation);
-      formData.append("call_number", call);
-      formData.append("whatsapp_number", wa);
+formData.append("brandname", this.sellerBrandname);
+formData.append("email", this.sellerEmail);
+formData.append("location", this.sellerLocation);
+formData.append("call_number", call);
+formData.append("whatsapp_number", wa);
 
+// Append logo ONLY if the user selected one
+if (this.sellerLogo) {
+  formData.append("logo", this.sellerLogo);
+}
+      
       try {
-        const res = await fetch("api/signup.php", {
+const res = await fetch("/signup.php", {
+        
           method: "POST",
           body: formData
         });
-
+        
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
+        
         const data = await res.json();
+        
+if (data.success) {
+  localStorage.setItem("userId", data.userId);
+  localStorage.setItem("storeId", data.storeId);
+  
+  // --- SAFELY UPDATE STORES ---
+  if (this.stores) {
+    this.stores.unshift({
+      id: data.storeId,
+      name: this.sellerBrandname,
+      logo: this.logoPreview || this.defaultLogo,
+      location: this.sellerLocation,
+      slug: this.sellerBrandname.toLowerCase().replace(/\s+/g, "-")
+    });
+    
+    if (this.filteredResults) {
+      this.filteredResults = this.stores;
+    }
+  }
+  
+  this.showToast("Signup successful!", "success");
+  setTimeout(() => this.$router.push("/profile"), 1500);
+} else {
+  this.showToast(data.message || "Signup failed. Try again.", "error");
+}
 
-        if (data.success) {
-          localStorage.setItem("userId", data.userId);
-          localStorage.setItem("storeId", data.storeId);
-
-          this.showToast("Signup successful!", "success");
-          setTimeout(() => this.$router.push("/profile"), 1500);
-        } else {
-          this.showToast(data.message || "Signup failed. Try again.", "error");
-        }
       } catch (err) {
         console.error("Signup error:", err);
         this.showToast("Network error. Please try again.", "error");
@@ -3064,8 +3117,11 @@ const SignupPage = {
       }
     }
   }
+  
 };
-    
+
+
+     
    
 const LoginPage = {
   template: `
@@ -3120,13 +3176,12 @@ const LoginPage = {
         return;
       }
       
-      
+    
       this.loading = true;
       
       const formData = new FormData();
       formData.append('email', this.sellerEmail);
 
-      
       try {
 const res = await fetch("/login.php", {
   method: 'POST',
@@ -3873,11 +3928,7 @@ const API = {
   
 };
 
-// Usage example
-/*fetch(API.GET_USER, { method: 'POST', body: JSON.stringify({ userId }) })
-  .then(res => res.json())
-  .then(data => console.log(data));
-  */
+
   
 
 const ProfilePage =  {
